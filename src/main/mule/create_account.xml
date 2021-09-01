@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:email="http://www.mulesoft.org/schema/mule/email"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/email http://www.mulesoft.org/schema/mule/email/current/mule-email.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="5afa063a-fea9-43fd-a294-ac1a461712b1" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" database="atm" />
+	</db:config>
+	<email:smtp-config name="Email_SMTP" doc:name="Email SMTP" doc:id="b01c3da0-b5a8-4186-8039-3c41018eab46" >
+		<email:smtp-connection host="smtp.gmail.com" port="587" user="phanikumarsindhe@gmail.com" password="ushakumari2091" >
+			<email:properties >
+				<email:property key="mail.smtp.starttls.enable" value="true" />
+			</email:properties>
+		</email:smtp-connection>
+	</email:smtp-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="07cb9f42-a863-493d-9f49-2bb210765a1b" >
+		<file:connection workingDir="F:\Mulesoft\ATM\Accounts" />
+	</file:config>
+	<flow name="createAccount" doc:id="5d38688a-64ac-4dfe-a740-d91fde092d8d" >
+		<logger level="INFO" doc:name="Logger" doc:id="e5094d23-e5b0-4b67-999e-28b25db743ab" message="Account Details Readed"/>
+		<ee:transform doc:name="Bank Details from Header and Body" doc:id="e87aad21-f2f4-4019-a627-1bb2aff58c9a" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="account_details" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"accountNum": payload.accountNum,
+	"atmPin": payload.atmPin,
+	"ifscCode": payload.ifscCode,
+	"depositAmount": payload.depositAmount,
+	"mailId": payload.mailId,
+	"contact": payload.contact,
+	"customerName": attributes.queryParams.customerName,
+	"bank": attributes.queryParams.bank,
+	"accountType": attributes.queryParams.accountType,
+	"branchName": attributes.queryParams.branchName
+}]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="Flow Reference" doc:id="7b3c8272-2296-4920-a356-745057c564a6" name="checking_account_exstance"/>
+		<choice doc:name="Choice" doc:id="7cc0848d-c64c-4b27-ae1f-5f460cf5ad46" >
+			<when expression="#[sizeOf(payload)==1]">
+				<set-payload value='#["Account " ++ vars.account_details.accountNum ++" already exist"]' doc:name="Already Exist" doc:id="18b55080-d781-45ad-9810-dc8dca59ebee" />
+			</when>
+			<otherwise >
+				<flow-ref doc:name="Flow Reference" doc:id="ad3ad63a-f32c-4806-a63e-8f2d36c9c963" name="insert_data_Flow"/>
+				<scatter-gather doc:name="Scatter-Gather" doc:id="27f12fba-a1be-4132-960c-5b9db378d311" >
+					<route >
+						<try doc:name="Try" doc:id="611d276a-f0fd-404b-ba84-92497db4adbc">
+					<email:send doc:name="Send" doc:id="1743f700-2834-420d-a9c1-7d1a82e6b68d" config-ref="Email_SMTP" fromAddress="phanikumarsindhe@gmail.com" subject='#["Account Created Successfully"]'>
+					<email:to-addresses>
+						<email:to-address value="sindhephanikumar@gmail.com" />
+					</email:to-addresses>
+					<email:body contentType="text/html">
+						<email:content><![CDATA[#["Dear" ++ vars.account_details.customerName ++ ", your account is created Successfully"]]]></email:content>
+					</email:body>
+				</email:send>
+					<error-handler>
+						<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="bf0e59ef-c8db-458f-ad10-c34d2dc69aae">
+							<logger level="INFO" doc:name="Logger" doc:id="b8606860-55df-4f99-88e3-10838604f14f" message="#[payload]" />
+							<set-payload value='#["Unable to Send Email"]' doc:name="Unable to Send Email" doc:id="d513a058-2e5e-4c5f-adfd-3da32999e1e3" />
+						</on-error-propagate>
+					</error-handler>
+				</try>
+					</route>
+					<route >
+						<try doc:name="Try" doc:id="7cdd0133-48cd-4398-b796-d1a9ee131e8c">
+					<file:write doc:name="Write" doc:id="100fd1cf-771d-41e0-a95c-72b81a646878" config-ref="File_Config" path='#[vars.account_details.customerName ++ "_" ++ vars.account_details.accountNum ++ ".json"]'>
+					<file:content><![CDATA[#[vars.account_details]]]></file:content>
+				</file:write>
+					<error-handler>
+						<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3690ffd4-79de-4575-9b59-a1529248f765">
+							<logger level="INFO" doc:name="Logger" doc:id="274c8a49-b4f4-4c92-bf4a-ebd62a7d1566" message="#[payload]" />
+							<set-payload value='#["Unable to Create the file"]' doc:name="Unable to Create the file" doc:id="197058d0-5b76-42b1-814c-3765eb32a632" />
+						</on-error-propagate>
+					</error-handler>
+				</try>
+					</route>
+				</scatter-gather>
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;  "status": "Account Created Successfully with Account Number" ++  vars.account_details.accountNum&#10;}]' doc:name="Created Succesfully" doc:id="d07689c5-b272-429c-ba9a-fce77fc17836" />
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="17739809-535b-4dd5-87db-072fdb9989e0" message="#[payload]"/>
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="1e00000c-e90c-4c71-a6a1-cfacce145d80" >
+				<set-payload value='#["Unable to Connect with database server"]' doc:name="Set Payload" doc:id="834f6472-0e2b-4cf2-842c-bbb1b8e7c059" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="insert_data_Flow" doc:id="dba16b41-8842-4157-b586-eaee00f113cd" >
+		<db:insert doc:name="Insert" doc:id="46468827-16ab-4141-990e-3c1a1f5ed02f" config-ref="Database_Config">
+				<db:sql><![CDATA[INSERT INTO `bank_transactions`(`custName`, `custAccNum`, `atmPin`, `bankName`, `accountType`, `ifscCode`, `branchName`, `totalBalance`, `transactionTimeStamp`, `accountStatus`, `wrongPin`, `mailId`, `phoneNumber`) VALUES (:customerName, :accountNum, :atmPin, :bank, :type, :ifscCode, :branchName, :depositAmount, :Date, "Active", 0, :mailId, :contact)]]></db:sql>
+				<db:input-parameters><![CDATA[#[{
+	"accountNum": vars.account_details.accountNum,
+	"atmPin": vars.account_details.atmPin,
+	"ifscCode": vars.account_details.ifscCode,
+	"depositAmount": vars.account_details.depositAmount,
+	"mailId": vars.account_details.mailId,
+	"contact": vars.account_details.contact,
+	"customerName": vars.account_details.customerName,
+	"bank": vars.account_details.bank,
+	"type": vars.account_details.accountType,
+	"branchName": vars.account_details.branchName,
+	"Date": now() as String {format: "y-MM-dd"}
+}]]]></db:input-parameters>
+			</db:insert>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="05c3aadc-771f-47c7-bd7e-61785c2211b2">
+					<logger level="INFO" doc:name="Logger" doc:id="56413896-6331-4233-9bf7-50c5e2dba418" message="#[payload]" />
+					<set-payload value='#["Unable to Insert data"]' doc:name="Unable to Insert data" doc:id="8283f0c1-aa06-4959-af85-437c3ee626c3" />
+				</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="checking_account_exstance" doc:id="99fb6f35-b83d-49cb-a52a-d278a625991b" >
+		<db:select doc:name="Check Account Number" doc:id="57d73b06-055f-428e-9955-e786352c11c3" config-ref="Database_Config">
+				<db:sql><![CDATA[select * from bank_transactions where custAccNum=:accountNum]]></db:sql>
+				<db:input-parameters><![CDATA[#["accountNum": payload.accountNum]]]></db:input-parameters>
+			</db:select>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Error Propagate" doc:id="cdfb105e-7331-43c8-afc3-576d33e1c0c7" type="ANY" >
+				<logger level="INFO" doc:name="Logger" doc:id="6ce7fbd7-dc55-45af-a74d-7063a1e5df84" message="#[payload]" />
+				<set-payload value='#["Unable to Connect with database server"]' doc:name="Set Payload" doc:id="f09b56f7-f0ba-4eb0-9019-6c6962ef140b" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

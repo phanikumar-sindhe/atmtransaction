@@ -1,0 +1,75 @@
+#%RAML 1.0
+title: ATM Transactions
+
+traits:
+  create_account: !include traits/createAccount.raml
+  check_blance: !include traits/checkBalance.raml
+/createAccount:
+  displayName: Create Account
+  post:
+    is:
+      - create_account
+    body:
+      application/json:
+        example: !include examples/create_body.json
+    responses:
+      201:
+        body:
+          application/json:
+            examples:
+              : {
+                  “status” : “Account Created Successfully with Account Number 1234567890”
+                }
+/checkBalance:
+  displayName: Check Balance
+  post:
+    is:
+      - check_blance
+    body:
+      application/json:
+        example: !include examples/check_balance.json
+    responses:
+      200:
+        body:
+          application/json:
+            example:
+              {
+                “status” : “Your total balance is 50000 as on 20-May-2020 is 50000”
+              } 
+/withDraw:
+  displayName: With Draw
+  post:
+    is:
+      - check_blance
+    body:
+      application/json:
+        example: !include examples/withDraw.json
+    responses:
+      200:
+        body:
+          application/json:
+            example:
+              {
+                “status” : “Amount 25000 is debited . Your total balance is 50000”
+              }
+/unblock:
+  put:
+    body:
+      application/json:
+        example: !include examples/unblock.json
+    responses:
+      200:
+        body:
+          application/json:
+            example:
+              {
+                “status” : “Account 1234567890 is unblocked”
+              }
+           
+
+          
+    
+          
+    
+
+            

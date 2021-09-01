@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<types:mule xmlns:types="http://www.mulesoft.org/schema/mule/types">
+  <types:catalog>
+    <types:type name="create_data_json" format="json">
+      <types:shape format="weave" example="examples/create_json.json"><![CDATA[%dw 2.0
+
+type create_data_json = {|
+  accountNum: String, 
+  atmPin: String, 
+  ifscCode: String, 
+  depositAmount: Number {"typeId": "int"}, 
+  mailId: String, 
+  contact: String
+|} {"example": "{\\\"accountNum\\\":\\\"1234567890\\\",\\\"atmPin\\\":\\\"1234\\\",\\\"ifscCode\\\":\\\"1234\\\",\\\"depositAmount\\\":2546,\\\"mailId\\\":\\\"phani@gmail.com\\\",\\\"contact\\\":\\\"9999999999\\\"}"}
+
+]]></types:shape>
+    </types:type>
+  </types:catalog>
+  <types:enrichment select="#e87aad21-f2f4-4019-a627-1bb2aff58c9a">
+    <types:processor-declaration>
+      <types:input-event>
+        <types:message>
+          <types:payload type="create_data_json"/>
+        </types:message>
+      </types:input-event>
+    </types:processor-declaration>
+  </types:enrichment>
+</types:mule>
